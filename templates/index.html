@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Disk Scheduling Visualizer</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <style>
+    body {
+      background: linear-gradient(to bottom right, #0a0f2c, #1e3a5f);
+      color: #f0f4f8;
+      font-family: 'Segoe UI', sans-serif;
+    }
+
+    .chart-container {
+      position: relative;
+      height: 500px;
+      width: 100%;
+    }
+  </style>
+</head>
+<body class="min-h-screen p-6 flex flex-col items-center justify-start">
+
+  <div class="w-full max-w-5xl bg-white bg-opacity-10 rounded-xl shadow-lg p-8">
+    <h1 class="text-4xl font-bold text-center mb-8 text-blue-100">Disk Scheduling Visualizer</h1>
+
+    <form id="scheduler-form" class="grid grid-cols-1 md:grid-cols-2 gap-6 text-black">
+      <div>
+        <label class="block font-semibold text-white mb-1">Request Sequence (comma separated):</label>
+        <input type="text" id="requests" placeholder="e.g. 82,170,43,140,24"
+               class="w-full p-2 rounded-lg border border-gray-300" required />
+      </div>
+
+      <div>
+        <label class="block font-semibold text-white mb-1">Head Position:</label>
+        <input type="number" id="head"
+               class="w-full p-2 rounded-lg border border-gray-300" required />
+      </div>
+
+      <div>
+        <label class="block font-semibold text-white mb-1">Number of Cylinders:</label>
+        <input type="number" id="cylinders"
+               class="w-full p-2 rounded-lg border border-gray-300" required />
+      </div>
+
+      <div>
+        <label class="block font-semibold text-white mb-1">Algorithm:</label>
+        <select id="algorithm"
+                class="w-full p-2 rounded-lg border border-gray-300">
+          <option value="FCFS">FCFS</option>
+          <option value="SSTF">SSTF</option>
+          <option value="SCAN">SCAN</option>
+          <option value="C-SCAN">C-SCAN</option>
+          <option value="C-LOOK">C-LOOK</option>
+        </select>
+      </div>
+
+      <div id="direction-group" class="hidden col-span-2">
+        <label class="block font-semibold text-white mb-1">Direction:</label>
+        <select id="direction"
+                class="w-full p-2 rounded-lg border border-gray-300">
+          <option value="left">Left</option>
+          <option value="right" selected>Right</option>
+        </select>
+      </div>
+
+      <div class="col-span-2 flex justify-center mt-4">
+        <button type="submit"
+                class="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg font-semibold transition">
+          Visualize
+        </button>
+      </div>
+    </form>
+
+    <div id="result" class="mt-10 text-white text-center">
+      <h2 class="text-2xl mb-4">Total Seek Time: <span id="seek-time">0</span></h2>
+      <p class="mb-6"><strong>Seek Sequence:</strong> <span id="seek-sequence"></span></p>
+
+      <div class="chart-container bg-white rounded-xl p-6 shadow-lg">
+        <canvas id="seek-chart"></canvas>
+      </div>
+      
+    </div>
+  </div>
+
+  <!-- Link to your JavaScript -->
+  <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
