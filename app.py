@@ -1,3 +1,4 @@
+
 from flask import Flask, render_template, request, jsonify
 
 app = Flask(__name__)
@@ -60,6 +61,33 @@ def scan(requests, head, cylinders, direction):
             current = r
     return seek_sequence, total_seek
 
+def look(requests, head, direction):
+    seek_sequence = []
+    total_seek = 0
+    current = head
+    left = sorted([r for r in requests if r < head])
+    right = sorted([r for r in requests if r >= head])
+
+    if direction == "left":
+        for r in reversed(left):
+            seek_sequence.append(r)
+            total_seek += abs(current - r)
+            current = r
+        for r in right:
+            seek_sequence.append(r)
+            total_seek += abs(current - r)
+            current = r
+    else:
+        for r in right:
+            seek_sequence.append(r)
+            total_seek += abs(current - r)
+            current = r
+        for r in reversed(left):
+            seek_sequence.append(r)
+            total_seek += abs(current - r)
+            current = r
+    return seek_sequence, total_seek
+
 def cscan(requests, head, cylinders):
     seek_sequence = []
     total_seek = 0
@@ -105,6 +133,28 @@ def clook(requests, head):
 
     return seek_sequence, total_seek
 
+def find_optimal_algorithm(requests, head, cylinders):
+    algos = ['FCFS', 'SSTF', 'SCAN', 'C-SCAN', 'C-LOOK', 'LOOK']
+    results = {}
+    
+    # Try each algorithm
+    results['FCFS'] = fcfs(requests, head)[1]
+    results['SSTF'] = sstf(requests, head)[1]
+    results['SCAN'] = min(
+        scan(requests, head, cylinders, 'left')[1],
+        scan(requests, head, cylinders, 'right')[1]
+    )
+    results['C-SCAN'] = cscan(requests, head, cylinders)[1]
+    results['C-LOOK'] = clook(requests, head)[1]
+    results['LOOK'] = min(
+        look(requests, head, 'left')[1],
+        look(requests, head, 'right')[1]
+    )
+    
+    # Find the algorithm with minimum seek time
+    optimal = min(results, key=results.get)
+    return optimal, results[optimal], results
+
 @app.route('/')
 def index():
     return render_template('index.html')
@@ -117,6 +167,7 @@ def schedule():
     cylinders = int(data['cylinders'])
     algorithm = data['algorithm']
     direction = data.get('direction', 'right')
+    compare = data.get('compare', False)
 
     if algorithm == 'FCFS':
         seq, total = fcfs(requests, head)
@@ -128,13 +179,25 @@ def schedule():
         seq, total = cscan(requests, head, cylinders)
     elif algorithm == 'C-LOOK':
         seq, total = clook(requests, head)
+    elif algorithm == 'LOOK':
+        seq, total = look(requests, head, direction)
     else:
         return jsonify({'error': 'Invalid algorithm'}), 400
-
-    return jsonify({
+    
+    result = {
         'sequence': [head] + seq,
         'total_seek': total
-    })
+    }
+    
+    if compare:
+        optimal_algo, optimal_seek, all_results = find_optimal_algorithm(requests, head, cylinders)
+        result['optimal'] = {
+            'algorithm': optimal_algo,
+            'seek_time': optimal_seek,
+            'all_results': all_results
+        }
+    
+    return jsonify(result)
 
 if __name__ == '__main__':
     app.run(debug=True)

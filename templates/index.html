@@ -23,6 +23,16 @@
       height: 500px;
       width: 100%;
     }
+    
+    #comparison-results {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.5s ease-out;
+    }
+    
+    #comparison-results.active {
+      max-height: 500px;
+    }
   </style>
 </head>
 <body class="min-h-screen p-6 flex flex-col items-center justify-start">
@@ -58,11 +68,12 @@
           <option value="SCAN">SCAN</option>
           <option value="C-SCAN">C-SCAN</option>
           <option value="C-LOOK">C-LOOK</option>
+          <option value="LOOK">LOOK</option>
         </select>
       </div>
 
-      <div id="direction-group" class="hidden col-span-2">
-        <label class="block font-semibold text-white mb-1">Direction:</label>
+      <div id="direction-container">
+        <label id="direction-label" class="block font-semibold text-white mb-1">Direction:</label>
         <select id="direction"
                 class="w-full p-2 rounded-lg border border-gray-300">
           <option value="left">Left</option>
@@ -70,10 +81,14 @@
         </select>
       </div>
 
-      <div class="col-span-2 flex justify-center mt-4">
-        <button type="submit"
+      <div class="col-span-2 flex justify-center gap-4 mt-4">
+        <button type="submit" id="visualize-btn"
                 class="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg font-semibold transition">
           Visualize
+        </button>
+        <button type="button" id="compare-btn"
+                class="bg-green-500 hover:bg-green-600 text-white px-6 py-2 rounded-lg font-semibold transition">
+          Compare With Optimal
         </button>
       </div>
     </form>
@@ -81,6 +96,13 @@
     <div id="result" class="mt-10 text-white text-center">
       <h2 class="text-2xl mb-4">Total Seek Time: <span id="seek-time">0</span></h2>
       <p class="mb-6"><strong>Seek Sequence:</strong> <span id="seek-sequence"></span></p>
+
+      <div id="comparison-results" class="mb-6 p-4 bg-white bg-opacity-20 rounded-lg">
+        <h3 class="text-xl mb-3">Comparison Results</h3>
+        <div id="comparison-container" class="grid grid-cols-2 gap-4">
+          <!-- Comparison results will be displayed here -->
+        </div>
+      </div>
 
       <div class="chart-container bg-white rounded-xl p-6 shadow-lg">
         <canvas id="seek-chart"></canvas>
