@@ -1,4 +1,3 @@
-
 from flask import Flask, render_template, request, jsonify
 
 app = Flask(__name__)
@@ -43,10 +42,11 @@ def scan(requests, head, cylinders, direction):
         if current != 0:
             total_seek += current
             current = 0
+            seek_sequence.append(current)  # Include end of disk
         for r in right:
-            seek_sequence.append(r)
             total_seek += abs(current - r)
             current = r
+            seek_sequence.append(r)
     else:
         for r in right:
             seek_sequence.append(r)
@@ -55,10 +55,12 @@ def scan(requests, head, cylinders, direction):
         if current != cylinders - 1:
             total_seek += (cylinders - 1) - current
             current = cylinders - 1
+            seek_sequence.append(current)  # Include end of disk
         for r in reversed(left):
-            seek_sequence.append(r)
             total_seek += abs(current - r)
             current = r
+            seek_sequence.append(r)
+
     return seek_sequence, total_seek
 
 def look(requests, head, direction):
@@ -99,11 +101,16 @@ def cscan(requests, head, cylinders):
         seek_sequence.append(r)
         total_seek += abs(current - r)
         current = r
+
     if current != cylinders - 1:
         total_seek += (cylinders - 1) - current
         current = cylinders - 1
-    total_seek += current
+        seek_sequence.append(current)  # Include end of disk
+
+    total_seek += current  # Move from end to start
     current = 0
+    seek_sequence.append(current)  # Include start of disk
+
     for r in left:
         seek_sequence.append(r)
         total_seek += abs(current - r)
@@ -136,8 +143,7 @@ def clook(requests, head):
 def find_optimal_algorithm(requests, head, cylinders):
     algos = ['FCFS', 'SSTF', 'SCAN', 'C-SCAN', 'C-LOOK', 'LOOK']
     results = {}
-    
-    # Try each algorithm
+
     results['FCFS'] = fcfs(requests, head)[1]
     results['SSTF'] = sstf(requests, head)[1]
     results['SCAN'] = min(
@@ -150,8 +156,7 @@ def find_optimal_algorithm(requests, head, cylinders):
         look(requests, head, 'left')[1],
         look(requests, head, 'right')[1]
     )
-    
-    # Find the algorithm with minimum seek time
+
     optimal = min(results, key=results.get)
     return optimal, results[optimal], results
 
@@ -183,12 +188,12 @@ def schedule():
         seq, total = look(requests, head, direction)
     else:
         return jsonify({'error': 'Invalid algorithm'}), 400
-    
+
     result = {
         'sequence': [head] + seq,
         'total_seek': total
     }
-    
+
     if compare:
         optimal_algo, optimal_seek, all_results = find_optimal_algorithm(requests, head, cylinders)
         result['optimal'] = {
@@ -196,7 +201,7 @@ def schedule():
             'seek_time': optimal_seek,
             'all_results': all_results
         }
-    
+
     return jsonify(result)
 
 if __name__ == '__main__':

@@ -1,25 +1,28 @@
 const form = document.getElementById('scheduler-form');
 const chartCanvas = document.getElementById('seek-chart');
-const direction = document.getElementById('direction');
 const directionContainer = document.getElementById('direction-container');
-const directionLabel = document.getElementById('direction-label');
+const directionSelect = document.getElementById('direction');
 const seekTimeDisplay = document.getElementById('seek-time');
 const seekSequenceDisplay = document.getElementById('seek-sequence');
+const compareBtn = document.getElementById('compare-btn');
 const comparisonResults = document.getElementById('comparison-results');
 const comparisonContainer = document.getElementById('comparison-container');
-const compareBtn = document.getElementById('compare-btn');
+
 let chart = null;
 
+// Show/hide direction dropdown based on algorithm
 document.getElementById('algorithm').addEventListener('change', function () {
-  const show = ['SCAN', 'LOOK'].includes(this.value);
-  directionContainer.style.display = show ? 'block' : 'none';
+  const dirAlgos = ['SCAN', 'LOOK', 'C-SCAN', 'C-LOOK'];
+  directionContainer.style.display = dirAlgos.includes(this.value) ? 'block' : 'none';
 });
 
+// Form submit
 form.addEventListener('submit', async (e) => {
   e.preventDefault();
   await processForm(false);
 });
 
+// Compare button click
 compareBtn.addEventListener('click', async () => {
   await processForm(true);
 });
@@ -29,19 +32,19 @@ async function processForm(compare) {
   const head = parseInt(document.getElementById('head').value);
   const cylinders = parseInt(document.getElementById('cylinders').value);
   const algorithm = document.getElementById('algorithm').value;
-  const dir = document.getElementById('direction').value;
+  const direction = directionSelect.value;
 
   if (!requests || isNaN(head) || isNaN(cylinders)) {
     alert("Please fill all fields correctly.");
     return;
   }
 
-  const data = { 
-    requests, 
-    head, 
-    cylinders, 
-    algorithm, 
-    direction: dir,
+  const data = {
+    requests,
+    head,
+    cylinders,
+    algorithm,
+    direction,
     compare
   };
 
@@ -56,17 +59,15 @@ async function processForm(compare) {
     if (json.error) throw new Error(json.error);
 
     seekTimeDisplay.innerText = json.total_seek;
-    seekSequenceDisplay.innerText = json.sequence.join(" → ");
+    seekSequenceDisplay.innerText = json.sequence.join(' → ');
 
-    // Handle comparison results if available
     if (compare && json.optimal) {
       displayComparisonResults(json.optimal, algorithm, json.total_seek);
+      visualizeBoth(json.sequence, json.optimal, algorithm);
     } else {
       comparisonResults.classList.remove('active');
+      visualizeSingle(json.sequence, algorithm);
     }
-
-    // Visualize the algorithm
-    visualizeAlgorithm(json.sequence, algorithm);
 
   } catch (err) {
     alert("Error: " + err.message);
@@ -74,19 +75,15 @@ async function processForm(compare) {
 }
 
 function displayComparisonResults(optimal, selectedAlgo, selectedSeekTime) {
-  // Show comparison section
   comparisonResults.classList.add('active');
-  
-  // Clear previous results
   comparisonContainer.innerHTML = '';
-  
-  // Create results table
+
   const allResults = optimal.all_results;
-  
-  // Header for comparison
+  const maxSeekTime = Math.max(...Object.values(allResults));
+
   const header = document.createElement('div');
   header.className = 'col-span-2 text-center mb-2';
-  
+
   if (optimal.algorithm === selectedAlgo) {
     header.innerHTML = `<p class="text-lg font-bold text-green-300">
       ${selectedAlgo} is already the optimal algorithm with seek time: ${optimal.seek_time}
@@ -98,57 +95,54 @@ function displayComparisonResults(optimal, selectedAlgo, selectedSeekTime) {
     </p>`;
   }
   comparisonContainer.appendChild(header);
-  
-  // Create algorithm comparison bars
-  const algorithms = Object.keys(allResults);
-  const maxSeekTime = Math.max(...Object.values(allResults));
-  
-  algorithms.forEach(algo => {
-    const seekTime = allResults[algo];
+
+  Object.entries(allResults).forEach(([algo, seekTime]) => {
     const percentWidth = (seekTime / maxSeekTime) * 100;
-    
-    const algoContainer = document.createElement('div');
-    algoContainer.className = 'col-span-2 flex items-center mb-2';
-    
-    const algoLabel = document.createElement('div');
-    algoLabel.className = 'w-24 text-right pr-3';
-    algoLabel.textContent = algo;
-    
+
+    const row = document.createElement('div');
+    row.className = 'col-span-2 flex items-center mb-2';
+
+    const label = document.createElement('div');
+    label.className = 'w-24 text-right pr-3';
+    label.textContent = algo;
+
     const barContainer = document.createElement('div');
     barContainer.className = 'flex-1 bg-gray-700 rounded-full h-6';
-    
+
     const bar = document.createElement('div');
-    bar.className = algo === optimal.algorithm ? 
-      'bg-green-500 h-6 rounded-full flex items-center pl-2 text-xs transition-all duration-500' :
-      (algo === selectedAlgo ? 
-        'bg-blue-500 h-6 rounded-full flex items-center pl-2 text-xs transition-all duration-500' :
-        'bg-gray-500 h-6 rounded-full flex items-center pl-2 text-xs transition-all duration-500');
-    bar.style.width = '0%';
+    bar.className = 'h-6 rounded-full flex items-center pl-2 text-xs transition-all duration-500';
     bar.textContent = seekTime;
-    
-    // Append elements
+    bar.style.width = '0%';
+
+    if (algo === optimal.algorithm) {
+      bar.classList.add('bg-green-500');
+    } else if (algo === selectedAlgo) {
+      bar.classList.add('bg-blue-500');
+    } else {
+      bar.classList.add('bg-gray-500');
+    }
+
     barContainer.appendChild(bar);
-    algoContainer.appendChild(algoLabel);
-    algoContainer.appendChild(barContainer);
-    comparisonContainer.appendChild(algoContainer);
-    
-    // Animate the bar width
+    row.appendChild(label);
+    row.appendChild(barContainer);
+    comparisonContainer.appendChild(row);
+
     setTimeout(() => {
       bar.style.width = `${percentWidth}%`;
     }, 100);
   });
 }
 
-async function visualizeAlgorithm(sequence, algorithm) {
+async function visualizeSingle(sequence, algorithm) {
   const labels = [];
   const values = [];
-  const colors = {
+  const colorMap = {
     FCFS: 'blue',
     SSTF: 'green',
     SCAN: 'orange',
     'C-SCAN': 'purple',
     'C-LOOK': 'brown',
-    'LOOK': 'red'
+    LOOK: 'red'
   };
 
   if (chart) chart.destroy();
@@ -160,37 +154,104 @@ async function visualizeAlgorithm(sequence, algorithm) {
       datasets: [{
         label: 'Head Movement',
         data: values,
-        borderColor: colors[algorithm] || 'blue',
+        borderColor: colorMap[algorithm] || 'blue',
         fill: false,
         tension: 0.3,
-        pointBackgroundColor: 'red',
-        pointRadius: 5
+        pointBackgroundColor: 'white',
+        pointRadius: 4
       }]
     },
     options: {
       responsive: true,
       animation: false,
       scales: {
-        y: {
-          title: { display: true, text: 'Cylinder Number' }
-        },
-        x: {
-          title: { display: true, text: 'Sequence Order' }
-        }
+        y: { title: { display: true, text: 'Cylinder Number' } },
+        x: { title: { display: true, text: 'Sequence Order' } }
       }
     }
   });
 
   for (let i = 0; i < sequence.length; i++) {
-    await new Promise(resolve => setTimeout(resolve, 500));
+    await new Promise(res => setTimeout(res, 400));
     chart.data.labels.push(i);
     chart.data.datasets[0].data.push(sequence[i]);
     chart.update();
   }
 }
 
-// Initialize direction visibility based on initial algorithm selection
+async function visualizeBoth(selectedSeq, optimalData, selectedAlgo) {
+  const labels = selectedSeq.map((_, i) => i);
+  const datasets = [];
+
+  const colorMap = {
+    FCFS: 'blue',
+    SSTF: 'green',
+    SCAN: 'orange',
+    'C-SCAN': 'purple',
+    'C-LOOK': 'brown',
+    LOOK: 'red'
+  };
+
+  // First: selected algorithm sequence
+  datasets.push({
+    label: `${selectedAlgo}`,
+    data: selectedSeq,
+    borderColor: colorMap[selectedAlgo] || 'blue',
+    fill: false,
+    tension: 0.3,
+    pointBackgroundColor: 'white',
+    pointRadius: 4
+  });
+
+  // Second: optimal algorithm sequence (only if different)
+  if (optimalData.algorithm !== selectedAlgo) {
+    try {
+      const res = await fetch('/schedule', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          requests: document.getElementById('requests').value.trim(),
+          head: parseInt(document.getElementById('head').value),
+          cylinders: parseInt(document.getElementById('cylinders').value),
+          algorithm: optimalData.algorithm,
+          direction: directionSelect.value
+        })
+      });
+      const json = await res.json();
+      datasets.push({
+        label: `${optimalData.algorithm} (Optimal)`,
+        data: json.sequence,
+        borderColor: colorMap[optimalData.algorithm] || 'gray',
+        borderDash: [5, 5],
+        fill: false,
+        tension: 0.3,
+        pointBackgroundColor: 'yellow',
+        pointRadius: 4
+      });
+    } catch (err) {
+      console.error("Failed to fetch optimal sequence for comparison graph.");
+    }
+  }
+
+  if (chart) chart.destroy();
+
+  chart = new Chart(chartCanvas, {
+    type: 'line',
+    data: { labels: labels, datasets },
+    options: {
+      responsive: true,
+      animation: false,
+      scales: {
+        y: { title: { display: true, text: 'Cylinder Number' } },
+        x: { title: { display: true, text: 'Sequence Order' } }
+      }
+    }
+  });
+}
+
+// Initialize on page load
 window.addEventListener('DOMContentLoaded', () => {
-  const showDirection = ['SCAN', 'LOOK'].includes(document.getElementById('algorithm').value);
-  directionContainer.style.display = showDirection ? 'block' : 'none';
+  const algo = document.getElementById('algorithm').value;
+  const dirAlgos = ['SCAN', 'LOOK', 'C-SCAN', 'C-LOOK'];
+  directionContainer.style.display = dirAlgos.includes(algo) ? 'block' : 'none';
 });
